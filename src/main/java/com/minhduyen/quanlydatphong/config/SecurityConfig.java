@@ -1,5 +1,6 @@
 package com.minhduyen.quanlydatphong.config;
 
+import com.minhduyen.quanlydatphong.security.JwtAuthFilter; // Thêm import
 import com.minhduyen.quanlydatphong.service.CustomUserDetailsService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
@@ -14,6 +15,8 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.config.http.SessionCreationPolicy; // Thêm import
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter; // Thêm import
 
 @Configuration
 @EnableWebSecurity // Kích hoạt tính năng bảo mật web của Spring Security
@@ -22,6 +25,8 @@ import org.springframework.security.web.SecurityFilterChain;
 public class SecurityConfig {
 
     private final CustomUserDetailsService customUserDetailsService;
+    private final JwtAuthFilter jwtAuthFilter; // <-- Inject JwtAuthFilter
+
 
     // 1. Tạo Bean để mã hóa mật khẩu
     @Bean
@@ -49,14 +54,19 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
             .csrf(csrf -> csrf.disable())
-            .authenticationProvider(authenticationProvider()) // <-- THÊM DÒNG NÀY
-
+            .authenticationProvider(authenticationProvider())
+            // Cấu hình session management là STATELESS (quan trọng cho JWT)
+            .sessionManagement(session ->
+                    session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+            )
             .authorizeHttpRequests(authorize -> authorize
-                // Sửa dòng này: Thêm "/api/v1/public/**" vào danh sách cho phép
                 .requestMatchers("/api/v1/auth/**", "/api/v1/public/**").permitAll()
                 .anyRequest().authenticated()
-            );
+            )
+            // Thêm JwtAuthFilter của chúng ta vào trước bộ lọc UsernamePasswordAuthenticationFilter
+            .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
+    
 }

@@ -1,7 +1,5 @@
 package com.minhduyen.quanlydatphong.controller;
 
-import com.minhduyen.quanlydatphong.dto.ApiResponse;
-import com.minhduyen.quanlydatphong.dto.RegisterRequest;
 import com.minhduyen.quanlydatphong.entity.User;
 import com.minhduyen.quanlydatphong.service.AuthService;
 import lombok.RequiredArgsConstructor;
@@ -9,6 +7,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.context.MessageSource; // Thêm import
 import org.springframework.context.i18n.LocaleContextHolder; // Thêm import
+import com.minhduyen.quanlydatphong.dto.*; // Import thêm
+
 
 @RestController
 @RequestMapping("/api/v1/auth") // Base path cho tất cả các API trong controller này
@@ -35,5 +35,16 @@ public class AuthController {
                 .build();
 
         return ResponseEntity.status(201).body(apiResponse);
+    }
+
+    @PostMapping("/login")
+    public ResponseEntity<ApiResponse<LoginResponse>> login(@RequestBody LoginRequest request) {
+        LoginResponse loginResponse = authService.login(request);
+        ApiResponse<LoginResponse> apiResponse = ApiResponse.<LoginResponse>builder()
+                .statusCode(200)
+                .message("Login successful!")
+                .data(loginResponse)
+                .build();
+        return ResponseEntity.ok(apiResponse);
     }
 }
