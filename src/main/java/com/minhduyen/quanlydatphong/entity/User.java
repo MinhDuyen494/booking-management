@@ -1,12 +1,19 @@
 package com.minhduyen.quanlydatphong.entity;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import jakarta.persistence.*;
+
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.stream.Collectors;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
 
 @Getter
 @Setter
@@ -14,7 +21,7 @@ import lombok.Setter;
 @AllArgsConstructor
 @Entity // Đánh dấu đây là một Entity, sẽ được ánh xạ tới một bảng trong DB
 @Table(name = "users") // Tên của bảng trong DB, thường dùng số nhiều
-public class User extends BaseEntity { // Kế thừa từ BaseEntity để có các trường chung
+public class User extends BaseEntity implements UserDetails { // Kế thừa từ BaseEntity để có các trường chung
 
     @Column(nullable = false, unique = true, length = 50)
     private String username;
@@ -28,4 +35,47 @@ public class User extends BaseEntity { // Kế thừa từ BaseEntity để có 
     @Column(length = 100)
     private String fullName;
 
+    @ManyToMany(fetch = FetchType.EAGER)
+    @JoinTable(
+            name = "user_role",
+            joinColumns = @JoinColumn(name = "user_id"),
+            inverseJoinColumns = @JoinColumn(name = "role_id")
+    )
+    private Set<Role> roles = new HashSet<>();
+
+    /**
+     * Phương thức quan trọng nhất: Trả về danh sách các quyền (Permissions) của người dùng.
+     * Spring Security sẽ dùng danh sách này để kiểm tra quyền truy cập (Authorization).
+     */
+    @Override
+    public Collection<? extends GrantedAuthority> getAuthorities() {
+        // Từ danh sách các Role, ta lấy ra tất cả các Permission
+        // và chuyển chúng thành các đối tượng SimpleGrantedAuthority.
+        return this.roles.stream()
+                .flatMap(role -> role.getPermissions().stream())
+                .map(permission -> new SimpleGrantedAuthority(permission.getName()))
+                .collect(Collectors.toList());
+    }
+
+    // Phương thức getPassword() và getUsername() đã được Lombok (@Getter) tạo sẵn.
+
+    @Override
+    public boolean isAccountNonExpired() {
+        return true; // tài khoản không bao giờ hết hạn
+    }
+
+    @Override
+    public boolean isAccountNonLocked() {
+        return true; // tài khoản không bị khóa
+    }
+
+    @Override
+    public boolean isCredentialsNonExpired() {
+        return true; // mật khẩu không bao giờ hết hạn
+    }
+
+    @Override
+    public boolean isEnabled() {
+        return true; // tài khoản được kích hoạt
+    }
 }

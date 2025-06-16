@@ -25,7 +25,7 @@ public class AuthService {
             // Thay thế chuỗi cứng bằng cách lấy message từ file properties
             if (userRepository.findByUsername(request.getUsername()).isPresent()) {
             String message = messageSource.getMessage(
-                "auth.register.username-existed", null, LocaleContextHolder.getLocale()
+                "auth.register.username-exists", null, LocaleContextHolder.getLocale()
             );
             throw new RuntimeException(message);
         }
