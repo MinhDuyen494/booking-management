@@ -5,9 +5,9 @@ import com.minhduyen.quanlydatphong.entity.User;
 import com.minhduyen.quanlydatphong.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import org.springframework.context.MessageSource; // Thêm import
-import org.springframework.context.i18n.LocaleContextHolder; // Thêm import
-import org.springframework.security.crypto.password.PasswordEncoder; // Thêm import
+import org.springframework.context.MessageSource;
+import org.springframework.context.i18n.LocaleContextHolder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import com.minhduyen.quanlydatphong.dto.LoginRequest;
 import com.minhduyen.quanlydatphong.dto.LoginResponse;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -35,18 +35,13 @@ public class AuthService {
 
     public User register(RegisterRequest request) {
         if (userRepository.findByUsername(request.getUsername()).isPresent()) {
-            // Thay thế chuỗi cứng bằng cách lấy message từ file properties
-            if (userRepository.findByUsername(request.getUsername()).isPresent()) {
-            String message = messageSource.getMessage(
-                "auth.register.username-exists", null, LocaleContextHolder.getLocale()
-            );
+            String message = messageSource.getMessage("auth.register.username-exists", null, LocaleContextHolder.getLocale());
             throw new RuntimeException(message);
-        }
         }
 
         // Tìm vai trò ROLE_USER trong database
         Role userRole = roleRepository.findByName("ROLE_USER")
-                .orElseThrow(() -> new RuntimeException("Error: Role is not found."));
+                .orElseThrow(() -> new RuntimeException(messageSource.getMessage("auth.role.not-found", null, LocaleContextHolder.getLocale())));
 
         Set<Role> roles = new HashSet<>();
         roles.add(userRole);
@@ -77,7 +72,7 @@ public class AuthService {
 
         // 2. Nếu xác thực thành công, tìm lại thông tin user
         var user = userRepository.findByUsername(request.getUsername())
-                .orElseThrow(() -> new IllegalArgumentException("Invalid email or password."));
+                .orElseThrow(() -> new IllegalArgumentException(messageSource.getMessage("auth.login.invalid", null, LocaleContextHolder.getLocale())));
 
         // 3. Tạo JWT token
         var jwtToken = jwtService.generateToken(user);

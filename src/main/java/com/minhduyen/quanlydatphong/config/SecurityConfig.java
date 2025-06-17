@@ -1,10 +1,11 @@
 package com.minhduyen.quanlydatphong.config;
 
-import com.minhduyen.quanlydatphong.security.JwtAuthFilter; // Thêm import
+import com.minhduyen.quanlydatphong.security.JwtAuthFilter;
 import com.minhduyen.quanlydatphong.service.CustomUserDetailsService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod; // <-- Quan trọng: Thêm import này
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
@@ -12,11 +13,12 @@ import org.springframework.security.config.annotation.authentication.configurati
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.config.http.SessionCreationPolicy; // Thêm import
-import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter; // Thêm import
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+
 
 @Configuration
 @EnableWebSecurity // Kích hoạt tính năng bảo mật web của Spring Security
@@ -59,11 +61,18 @@ public class SecurityConfig {
             .sessionManagement(session ->
                     session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
             )
+            // --- PHẦN SỬA LẠI NẰM Ở ĐÂY ---
             .authorizeHttpRequests(authorize -> authorize
-                .requestMatchers("/api/v1/auth/**", "/api/v1/public/**").permitAll()
-                .anyRequest().authenticated()
+                    // Các quy tắc cũ cho public và auth endpoints
+                    .requestMatchers("/api/v1/auth/**", "/api/v1/public/**").permitAll()
+
+                    // Các quy tắc mới, tường minh hơn cho các endpoint cần xác thực
+                    .requestMatchers(HttpMethod.POST, "/api/v1/users/change-password").authenticated() // <-- SỬA LẠI CHO API ĐỔI MẬT KHẨU
+                    .requestMatchers(HttpMethod.GET, "/api/v1/test/**").authenticated() // <-- QUY TẮC CHO API TEST
+
+                    // Quy tắc cuối cùng: Bất kỳ request nào không khớp các quy tắc trên đều bị từ chối
+                    .anyRequest().denyAll()
             )
-            // Thêm JwtAuthFilter của chúng ta vào trước bộ lọc UsernamePasswordAuthenticationFilter
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
