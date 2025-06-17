@@ -14,15 +14,21 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
+import com.minhduyen.quanlydatphong.repository.InvalidatedTokenRepository;
+import lombok.extern.slf4j.Slf4j; // <-- THÊM IMPORT NÀY
+
 
 import java.io.IOException;
 
 @Component // Đánh dấu là một Spring Bean để có thể inject ở nơi khác
 @RequiredArgsConstructor
+@Slf4j // <-- THÊM ANNOTATION NÀY ĐỂ DÙNG BIẾN 'log'
 public class JwtAuthFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
     private final UserDetailsService userDetailsService;
+    private final InvalidatedTokenRepository invalidatedTokenRepository; // <-- Inject repository
+
 
     @Override
     protected void doFilterInternal(
@@ -43,6 +49,29 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
         // 2. Tách lấy chuỗi token (bỏ đi 7 ký tự "Bearer ")
         jwt = authHeader.substring(7);
+
+        // --- THÊM LOGIC KIỂM TRA BLACKLIST ---
+        log.info("Received Token: {}", jwt); // Log để xem token nhận được
+
+        try {
+            final String jti = jwtService.extractJti(jwt);
+            log.info("Extracted JTI from token: {}", jti); // Log để xem JTI trích xuất được
+
+            boolean isInvalidated = invalidatedTokenRepository.existsById(jti);
+            log.info("Checking blacklist for JTI {}. Is it invalidated? -> {}", jti, isInvalidated); // Log kết quả kiểm tra DB
+
+            if (isInvalidated) {
+                log.warn("TOKEN IS BLACKLISTED. Rejecting request for JTI: {}", jti);
+                response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Token has been invalidated");
+                return;
+            }
+        } catch (Exception e) {
+            log.error("Invalid token processing", e);
+            response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Invalid Token");
+            return;
+        }
+
+        log.info("Token is valid, proceeding with authentication.");
 
         // 3. Trích xuất username từ token bằng JwtService
         username = jwtService.extractUsername(jwt);

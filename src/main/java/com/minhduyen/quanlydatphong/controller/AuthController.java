@@ -8,6 +8,8 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.context.MessageSource; // Thêm import
 import org.springframework.context.i18n.LocaleContextHolder; // Thêm import
 import com.minhduyen.quanlydatphong.dto.*; // Import thêm
+import jakarta.servlet.http.HttpServletRequest; // Thêm import
+
 
 
 @RestController
@@ -44,6 +46,21 @@ public class AuthController {
                 .statusCode(200)
                 .message("Login successful!")
                 .data(loginResponse)
+                .build();
+        return ResponseEntity.ok(apiResponse);
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<ApiResponse> logout(HttpServletRequest request) {
+        final String authHeader = request.getHeader("Authorization");
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            final String token = authHeader.substring(7);
+            authService.logout(token);
+        }
+
+        ApiResponse apiResponse = ApiResponse.builder()
+                .statusCode(200)
+                .message("You have been logged out successfully.")
                 .build();
         return ResponseEntity.ok(apiResponse);
     }

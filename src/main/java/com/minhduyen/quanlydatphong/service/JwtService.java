@@ -14,6 +14,8 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
+import java.util.UUID; // Thêm import
+
 
 @Service
 public class JwtService {
@@ -43,11 +45,17 @@ public class JwtService {
         return Jwts.builder()
                 .setClaims(extraClaims)
                 .setSubject(userDetails.getUsername())
+                .setId(UUID.randomUUID().toString()) // Thêm JTI
                 .setIssuedAt(new Date(System.currentTimeMillis()))
-                .setExpiration(new Date(System.currentTimeMillis() + 1000 * 60 * 60 * 24)) // Token hết hạn sau 24 giờ
+                .setExpiration(new Date(System.currentTimeMillis() + 1000 * 60 * 60 * 24))
                 .signWith(getSignInKey(), SignatureAlgorithm.HS256)
                 .compact();
     }
+
+    public String extractJti(String token) {
+        return extractClaim(token, Claims::getId);
+    }
+
 
     // Kiểm tra token có hợp lệ không
     public boolean isTokenValid(String token, UserDetails userDetails) {
@@ -61,7 +69,7 @@ public class JwtService {
     }
 
     // Trích xuất ngày hết hạn
-    private Date extractExpiration(String token) {
+    Date extractExpiration(String token) {
         return extractClaim(token, Claims::getExpiration);
     }
 

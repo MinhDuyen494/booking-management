@@ -12,7 +12,13 @@ import com.minhduyen.quanlydatphong.dto.LoginRequest;
 import com.minhduyen.quanlydatphong.dto.LoginResponse;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-
+import com.minhduyen.quanlydatphong.entity.InvalidatedToken;
+import com.minhduyen.quanlydatphong.repository.InvalidatedTokenRepository;
+import java.util.Date;
+import com.minhduyen.quanlydatphong.entity.Role;
+import com.minhduyen.quanlydatphong.repository.RoleRepository;
+import java.util.HashSet;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor // Giúp tự động inject các dependency được khai báo final
@@ -23,6 +29,8 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder; // Inject PasswordEncoder
     private final AuthenticationManager authenticationManager; // Inject AuthenticationManager
     private final JwtService jwtService; // Inject JwtService
+    private final InvalidatedTokenRepository invalidatedTokenRepository;
+    private final RoleRepository roleRepository; // Inject RoleRepository
 
 
     public User register(RegisterRequest request) {
@@ -36,6 +44,13 @@ public class AuthService {
         }
         }
 
+        // Tìm vai trò ROLE_USER trong database
+        Role userRole = roleRepository.findByName("ROLE_USER")
+                .orElseThrow(() -> new RuntimeException("Error: Role is not found."));
+
+        Set<Role> roles = new HashSet<>();
+        roles.add(userRole);
+
         // 2. Tạo một đối tượng User mới
         User newUser = new User();
         newUser.setUsername(request.getUsername());
@@ -44,6 +59,8 @@ public class AuthService {
 
         // Mã hóa mật khẩu của người dùng trước khi lưu vào database
         newUser.setPassword(passwordEncoder.encode(request.getPassword()));
+        newUser.setRoles(roles); // <-- GÁN VAI TRÒ CHO USER MỚI
+
         // 3. Lưu người dùng mới vào cơ sở dữ liệu
         return userRepository.save(newUser);
     }
@@ -67,5 +84,14 @@ public class AuthService {
 
         // 4. Trả về token
         return LoginResponse.builder().accessToken(jwtToken).build();
+    }
+
+    // --- THÊM PHƯƠNG THỨC LOGOUT ---
+    public void logout(String token) {
+        String jti = jwtService.extractJti(token);
+        Date expiryTime = jwtService.extractExpiration(token);
+
+        InvalidatedToken invalidatedToken = new InvalidatedToken(jti, expiryTime);
+        invalidatedTokenRepository.save(invalidatedToken);
     }
 }

@@ -33,11 +33,5 @@ public class PublicController {
 
         return ResponseEntity.ok(apiResponse);
     }
-
-    // Thêm vào trong lớp PublicController
-    @GetMapping("/test-security")
-    public ResponseEntity<String> testSecurity() {
-        return ResponseEntity.ok("Nếu bạn thấy được dòng này, bạn đã được xác thực thành công!");
-    }
 }
 
