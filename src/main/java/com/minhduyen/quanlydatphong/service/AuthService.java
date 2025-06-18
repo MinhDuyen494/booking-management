@@ -4,6 +4,8 @@ import com.minhduyen.quanlydatphong.dto.RegisterRequest;
 import com.minhduyen.quanlydatphong.entity.User;
 import com.minhduyen.quanlydatphong.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.stereotype.Service;
 import org.springframework.context.MessageSource;
 import org.springframework.context.i18n.LocaleContextHolder;
@@ -18,13 +20,19 @@ import java.util.Date;
 import com.minhduyen.quanlydatphong.entity.Role;
 import com.minhduyen.quanlydatphong.repository.RoleRepository;
 import java.util.HashSet;
+import java.util.Locale;
 import java.util.Set;
 import com.minhduyen.quanlydatphong.dto.ForgotPasswordRequest;
 import com.minhduyen.quanlydatphong.dto.ResetPasswordRequest;
 import java.time.LocalDateTime;
 import java.util.UUID;
+import com.minhduyen.quanlydatphong.entity.ActiveToken;
+import com.minhduyen.quanlydatphong.repository.ActiveTokenRepository;
+import org.springframework.beans.factory.annotation.Value;
+import java.time.ZoneId;
 
 @Service
+@Slf4j
 @RequiredArgsConstructor // Giúp tự động inject các dependency được khai báo final
 public class AuthService {
 
@@ -35,6 +43,11 @@ public class AuthService {
     private final JwtService jwtService; // Inject JwtService
     private final InvalidatedTokenRepository invalidatedTokenRepository;
     private final RoleRepository roleRepository; // Inject RoleRepository
+    private final ActiveTokenRepository activeTokenRepository;
+
+    // Lấy giá trị từ file properties
+    @Value("${app.security.max-concurrent-logins}")
+    private int maxConcurrentLogins;
 
     public User register(RegisterRequest request) {
         if (userRepository.findByUsername(request.getUsername()).isPresent()) {
@@ -62,7 +75,7 @@ public class AuthService {
         // 3. Lưu người dùng mới vào cơ sở dữ liệu
         return userRepository.save(newUser);
     }
-
+    // --- PHƯƠNG THỨC LOGIN ---
     public LoginResponse login(LoginRequest request) {
         // 1. Xác thực người dùng bằng AuthenticationManager
         // Nó sẽ tự động gọi CustomUserDetailsService và dùng PasswordEncoder để kiểm tra
@@ -72,25 +85,73 @@ public class AuthService {
                         request.getPassword()
                 )
         );
-
         // 2. Nếu xác thực thành công, tìm lại thông tin user
         var user = userRepository.findByUsername(request.getUsername())
                 .orElseThrow(() -> new IllegalArgumentException(messageSource.getMessage("auth.login.invalid", null, LocaleContextHolder.getLocale())));
-
-        // 3. Tạo JWT token
+        // Xử lý logic giới hạn đăng nhập đồng thời
+        handleConcurrentLogins(user);
+                // 3. Tạo JWT token
         var jwtToken = jwtService.generateToken(user);
 
-        // 4. Trả về token
+       // Lưu token mới vào danh sách active
+        ActiveToken activeToken = ActiveToken.builder()
+                .id(jwtService.extractJti(jwtToken))
+                .user(user)
+                .expiryTime(jwtService.extractExpiration(jwtToken).toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime())
+                .build();
+        activeTokenRepository.save(activeToken);
+
         return LoginResponse.builder().accessToken(jwtToken).build();
     }
 
-    // --- THÊM PHƯƠNG THỨC LOGOUT ---
+    private void handleConcurrentLogins(User user) {
+    long activeTokenCount = activeTokenRepository.countByUserAndExpiryTimeAfter(user, LocalDateTime.now());
+
+    Locale locale = LocaleContextHolder.getLocale();
+
+    log.info(messageSource.getMessage("auth.concurrent-check.start",
+            new Object[]{user.getUsername()}, locale));
+
+    log.info(messageSource.getMessage("auth.concurrent-check.count",
+            new Object[]{activeTokenCount}, locale));
+
+    log.info(messageSource.getMessage("auth.concurrent-check.max",
+            new Object[]{maxConcurrentLogins}, locale));
+
+    if (activeTokenCount >= maxConcurrentLogins) {
+        log.warn(messageSource.getMessage("auth.concurrent-check.limit-reached",
+                new Object[]{user.getUsername()}, locale));
+
+        activeTokenRepository.findFirstByUserOrderByCreatedAtAsc(user)
+                .ifPresent(oldestToken -> {
+                    log.info(messageSource.getMessage("auth.concurrent-check.oldest-token",
+                            new Object[]{oldestToken.getId()}, locale));
+
+                    Date expiry = Date.from(oldestToken.getExpiryTime().atZone(ZoneId.systemDefault()).toInstant());
+                    invalidatedTokenRepository.save(new InvalidatedToken(oldestToken.getId(), expiry));
+                    activeTokenRepository.delete(oldestToken);
+
+                    log.info(messageSource.getMessage("auth.concurrent-check.oldest-token-removed",
+                            null, locale));
+                });
+    } else {
+        log.info(messageSource.getMessage("auth.concurrent-check.ok", null, locale));
+    }
+}
+
+    //     // 4. Trả về token
+    //     return LoginResponse.builder().accessToken(jwtToken).build();
+    // }
+
+    // PHƯƠNG THỨC LOGOUT ---
     public void logout(String token) {
         String jti = jwtService.extractJti(token);
         Date expiryTime = jwtService.extractExpiration(token);
 
-        InvalidatedToken invalidatedToken = new InvalidatedToken(jti, expiryTime);
-        invalidatedTokenRepository.save(invalidatedToken);
+        // Thêm vào blacklist
+        invalidatedTokenRepository.save(new InvalidatedToken(jti, expiryTime));
+        // Xóa khỏi danh sách active
+        activeTokenRepository.deleteById(jti);
     }
 
     // PHƯƠNG THỨC FORGOT PASSWORD ---
