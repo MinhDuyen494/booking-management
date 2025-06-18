@@ -19,6 +19,10 @@ import com.minhduyen.quanlydatphong.entity.Role;
 import com.minhduyen.quanlydatphong.repository.RoleRepository;
 import java.util.HashSet;
 import java.util.Set;
+import com.minhduyen.quanlydatphong.dto.ForgotPasswordRequest;
+import com.minhduyen.quanlydatphong.dto.ResetPasswordRequest;
+import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor // Giúp tự động inject các dependency được khai báo final
@@ -31,7 +35,6 @@ public class AuthService {
     private final JwtService jwtService; // Inject JwtService
     private final InvalidatedTokenRepository invalidatedTokenRepository;
     private final RoleRepository roleRepository; // Inject RoleRepository
-
 
     public User register(RegisterRequest request) {
         if (userRepository.findByUsername(request.getUsername()).isPresent()) {
@@ -88,5 +91,53 @@ public class AuthService {
 
         InvalidatedToken invalidatedToken = new InvalidatedToken(jti, expiryTime);
         invalidatedTokenRepository.save(invalidatedToken);
+    }
+
+    // PHƯƠNG THỨC FORGOT PASSWORD ---
+    public String forgotPassword(ForgotPasswordRequest request) {
+        User user = userRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> {
+                    String message = messageSource.getMessage(
+                        "user.forgot-password.email-not-found", null, LocaleContextHolder.getLocale()
+                    );
+                    return new RuntimeException(message + ": " + request.getEmail());
+                });
+        // Tạo token ngẫu nhiên
+        String token = UUID.randomUUID().toString();
+        user.setResetPasswordToken(token);
+        // Đặt thời gian hết hạn (ví dụ: 15 phút)
+        user.setResetTokenExpiryTime(LocalDateTime.now().plusMinutes(15));
+        userRepository.save(user);
+        return token;
+    }
+
+    public void resetPassword(ResetPasswordRequest request) {
+        // Tái sử dụng key message đã có cho việc kiểm tra mật khẩu không khớp
+        if (!request.getNewPassword().equals(request.getConfirmationPassword())) {
+            String message = messageSource.getMessage(
+                "user.change-password.not-match", null, LocaleContextHolder.getLocale()
+            );
+            throw new IllegalStateException(message);
+        }
+        
+        User user = userRepository.findByResetPasswordToken(request.getToken())
+                .orElseThrow(() -> {
+                    String message = messageSource.getMessage(
+                        "user.reset-password.invalid-token", null, LocaleContextHolder.getLocale()
+                    );
+                    return new RuntimeException(message);
+                });
+
+        if (user.getResetTokenExpiryTime().isBefore(LocalDateTime.now())) {
+            String message = messageSource.getMessage(
+                "user.reset-password.expired-token", null, LocaleContextHolder.getLocale()
+            );
+            throw new RuntimeException(message);
+        }
+
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        user.setResetPasswordToken(null);
+        user.setResetTokenExpiryTime(null);
+        userRepository.save(user);
     }
 }

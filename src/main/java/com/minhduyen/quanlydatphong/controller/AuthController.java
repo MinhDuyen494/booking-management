@@ -56,4 +56,32 @@ public class AuthController {
                 .build();
         return ResponseEntity.ok(apiResponse);
     }
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<ApiResponse<String>> forgotPassword(@RequestBody ForgotPasswordRequest request) {
+        String resetToken = authService.forgotPassword(request);
+        String message = messageSource.getMessage(
+            "user.forgot-password.simulation-success", null, LocaleContextHolder.getLocale()
+        );
+        
+        ApiResponse<String> apiResponse = ApiResponse.<String>builder()
+                .statusCode(200)
+                .message(message)
+                .data(resetToken)
+                .build();
+        return ResponseEntity.ok(apiResponse);
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<ApiResponse> resetPassword(@RequestBody ResetPasswordRequest request) {
+        authService.resetPassword(request);
+        String message = messageSource.getMessage(
+            "user.reset-password.success", null, LocaleContextHolder.getLocale()
+        );
+        ApiResponse apiResponse = ApiResponse.builder()
+                .statusCode(200)
+                .message(message)
+                .build();
+        return ResponseEntity.ok(apiResponse);
+    }
 }

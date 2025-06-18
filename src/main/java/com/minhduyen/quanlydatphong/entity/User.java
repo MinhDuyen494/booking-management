@@ -11,6 +11,7 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import java.time.LocalDateTime; // Thêm import
 
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -42,6 +43,8 @@ public class User extends BaseEntity implements UserDetails { // Kế thừa t�
             inverseJoinColumns = @JoinColumn(name = "role_id")
     )
     private Set<Role> roles = new HashSet<>();
+    private String resetPasswordToken;
+    private LocalDateTime resetTokenExpiryTime;
 
     /**
      * Phương thức quan trọng nhất: Trả về danh sách các quyền (Permissions) của người dùng.
@@ -78,4 +81,6 @@ public class User extends BaseEntity implements UserDetails { // Kế thừa t�
     public boolean isEnabled() {
         return true; // tài khoản được kích hoạt
     }
+
+    
 }
