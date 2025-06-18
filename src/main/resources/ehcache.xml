@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<config xmlns:xsi='http://www.w3.org/2001/XMLSchema-instance'
+        xmlns='http://www.ehcache.org/v3'
+        xsi:schemaLocation="http://www.ehcache.org/v3 http://www.ehcache.org/schema/ehcache-core-3.0.xsd'">
+
+    <!-- Cache dùng cho Bucket4j -->
+    <cache alias="buckets">
+        <!-- Sử dụng bộ nhớ heap, tối đa 1000 phần tử -->
+        <heap unit="entries">1000</heap>
+
+        <!-- Mỗi entry trong cache sống tối đa 30 phút (có thể chỉnh lại tùy ý) -->
+        <expiry>
+            <ttl unit="minutes">30</ttl>
+        </expiry>
+    </cache>
+</config>

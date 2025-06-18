@@ -1,0 +1,27 @@
+{"properties": [
+  {
+    "name": "bucket4j.enabled",
+    "type": "java.lang.String",
+    "description": "A description for 'bucket4j.enabled'"
+  },
+  {
+    "name": "app.security.max-concurrent-logins",
+    "type": "java.lang.String",
+    "description": "A description for 'app.security.max-concurrent-logins'"
+  },
+  {
+    "name": "jwt.secret-key",
+    "type": "java.lang.String",
+    "description": "A description for 'jwt.secret-key'"
+  },
+  {
+    "name": "bucket4j.filters[0].rate-limits[0].expression",
+    "type": "java.lang.String",
+    "description": "A description for 'bucket4j.filters[0].rate-limits[0].expression'"
+  },
+  {
+    "name": "bucket4j.filters[0].cache-name",
+    "type": "java.lang.String",
+    "description": "A description for 'bucket4j.filters[0].cache-name'"
+  }
+]}
