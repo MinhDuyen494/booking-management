@@ -51,13 +51,15 @@ public class AuthService {
 
     public User register(RegisterRequest request) {
         if (userRepository.findByUsername(request.getUsername()).isPresent()) {
-            String message = messageSource.getMessage("auth.register.username-exists", null, LocaleContextHolder.getLocale());
+            String message = messageSource.getMessage("auth.register.username-exists", null,
+                    LocaleContextHolder.getLocale());
             throw new RuntimeException(message);
         }
 
         // Tìm vai trò ROLE_USER trong database
         Role userRole = roleRepository.findByName("ROLE_USER")
-                .orElseThrow(() -> new RuntimeException(messageSource.getMessage("auth.role.not-found", null, LocaleContextHolder.getLocale())));
+                .orElseThrow(() -> new RuntimeException(
+                        messageSource.getMessage("auth.role.not-found", null, LocaleContextHolder.getLocale())));
 
         Set<Role> roles = new HashSet<>();
         roles.add(userRole);
@@ -75,29 +77,31 @@ public class AuthService {
         // 3. Lưu người dùng mới vào cơ sở dữ liệu
         return userRepository.save(newUser);
     }
+
     // --- PHƯƠNG THỨC LOGIN ---
     public LoginResponse login(LoginRequest request) {
         // 1. Xác thực người dùng bằng AuthenticationManager
-        // Nó sẽ tự động gọi CustomUserDetailsService và dùng PasswordEncoder để kiểm tra
+        // Nó sẽ tự động gọi CustomUserDetailsService và dùng PasswordEncoder để kiểm
+        // tra
         authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
                         request.getUsername(),
-                        request.getPassword()
-                )
-        );
+                        request.getPassword()));
         // 2. Nếu xác thực thành công, tìm lại thông tin user
         var user = userRepository.findByUsername(request.getUsername())
-                .orElseThrow(() -> new IllegalArgumentException(messageSource.getMessage("auth.login.invalid", null, LocaleContextHolder.getLocale())));
+                .orElseThrow(() -> new IllegalArgumentException(
+                        messageSource.getMessage("auth.login.invalid", null, LocaleContextHolder.getLocale())));
         // Xử lý logic giới hạn đăng nhập đồng thời
         handleConcurrentLogins(user);
-                // 3. Tạo JWT token
+        // 3. Tạo JWT token
         var jwtToken = jwtService.generateToken(user);
 
-       // Lưu token mới vào danh sách active
+        // Lưu token mới vào danh sách active
         ActiveToken activeToken = ActiveToken.builder()
                 .id(jwtService.extractJti(jwtToken))
                 .user(user)
-                .expiryTime(jwtService.extractExpiration(jwtToken).toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime())
+                .expiryTime(jwtService.extractExpiration(jwtToken).toInstant().atZone(ZoneId.systemDefault())
+                        .toLocalDateTime())
                 .build();
         activeTokenRepository.save(activeToken);
 
@@ -105,42 +109,42 @@ public class AuthService {
     }
 
     private void handleConcurrentLogins(User user) {
-    long activeTokenCount = activeTokenRepository.countByUserAndExpiryTimeAfter(user, LocalDateTime.now());
+        long activeTokenCount = activeTokenRepository.countByUserAndExpiryTimeAfter(user, LocalDateTime.now());
 
-    Locale locale = LocaleContextHolder.getLocale();
+        Locale locale = LocaleContextHolder.getLocale();
 
-    log.info(messageSource.getMessage("auth.concurrent-check.start",
-            new Object[]{user.getUsername()}, locale));
+        log.info(messageSource.getMessage("auth.concurrent-check.start",
+                new Object[] { user.getUsername() }, locale));
 
-    log.info(messageSource.getMessage("auth.concurrent-check.count",
-            new Object[]{activeTokenCount}, locale));
+        log.info(messageSource.getMessage("auth.concurrent-check.count",
+                new Object[] { activeTokenCount }, locale));
 
-    log.info(messageSource.getMessage("auth.concurrent-check.max",
-            new Object[]{maxConcurrentLogins}, locale));
+        log.info(messageSource.getMessage("auth.concurrent-check.max",
+                new Object[] { maxConcurrentLogins }, locale));
 
-    if (activeTokenCount >= maxConcurrentLogins) {
-        log.warn(messageSource.getMessage("auth.concurrent-check.limit-reached",
-                new Object[]{user.getUsername()}, locale));
+        if (activeTokenCount >= maxConcurrentLogins) {
+            log.warn(messageSource.getMessage("auth.concurrent-check.limit-reached",
+                    new Object[] { user.getUsername() }, locale));
 
-        activeTokenRepository.findFirstByUserOrderByCreatedAtAsc(user)
-                .ifPresent(oldestToken -> {
-                    log.info(messageSource.getMessage("auth.concurrent-check.oldest-token",
-                            new Object[]{oldestToken.getId()}, locale));
+            activeTokenRepository.findFirstByUserOrderByCreatedAtAsc(user)
+                    .ifPresent(oldestToken -> {
+                        log.info(messageSource.getMessage("auth.concurrent-check.oldest-token",
+                                new Object[] { oldestToken.getId() }, locale));
 
-                    Date expiry = Date.from(oldestToken.getExpiryTime().atZone(ZoneId.systemDefault()).toInstant());
-                    invalidatedTokenRepository.save(new InvalidatedToken(oldestToken.getId(), expiry));
-                    activeTokenRepository.delete(oldestToken);
+                        Date expiry = Date.from(oldestToken.getExpiryTime().atZone(ZoneId.systemDefault()).toInstant());
+                        invalidatedTokenRepository.save(new InvalidatedToken(oldestToken.getId(), expiry));
+                        activeTokenRepository.delete(oldestToken);
 
-                    log.info(messageSource.getMessage("auth.concurrent-check.oldest-token-removed",
-                            null, locale));
-                });
-    } else {
-        log.info(messageSource.getMessage("auth.concurrent-check.ok", null, locale));
+                        log.info(messageSource.getMessage("auth.concurrent-check.oldest-token-removed",
+                                null, locale));
+                    });
+        } else {
+            log.info(messageSource.getMessage("auth.concurrent-check.ok", null, locale));
+        }
     }
-}
 
-    //     // 4. Trả về token
-    //     return LoginResponse.builder().accessToken(jwtToken).build();
+    // // 4. Trả về token
+    // return LoginResponse.builder().accessToken(jwtToken).build();
     // }
 
     // PHƯƠNG THỨC LOGOUT ---
@@ -159,8 +163,7 @@ public class AuthService {
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> {
                     String message = messageSource.getMessage(
-                        "user.forgot-password.email-not-found", null, LocaleContextHolder.getLocale()
-                    );
+                            "user.forgot-password.email-not-found", null, LocaleContextHolder.getLocale());
                     return new RuntimeException(message + ": " + request.getEmail());
                 });
         // Tạo token ngẫu nhiên
@@ -176,23 +179,20 @@ public class AuthService {
         // Tái sử dụng key message đã có cho việc kiểm tra mật khẩu không khớp
         if (!request.getNewPassword().equals(request.getConfirmationPassword())) {
             String message = messageSource.getMessage(
-                "user.change-password.not-match", null, LocaleContextHolder.getLocale()
-            );
+                    "user.change-password.not-match", null, LocaleContextHolder.getLocale());
             throw new IllegalStateException(message);
         }
-        
+
         User user = userRepository.findByResetPasswordToken(request.getToken())
                 .orElseThrow(() -> {
                     String message = messageSource.getMessage(
-                        "user.reset-password.invalid-token", null, LocaleContextHolder.getLocale()
-                    );
+                            "user.reset-password.invalid-token", null, LocaleContextHolder.getLocale());
                     return new RuntimeException(message);
                 });
 
         if (user.getResetTokenExpiryTime().isBefore(LocalDateTime.now())) {
             String message = messageSource.getMessage(
-                "user.reset-password.expired-token", null, LocaleContextHolder.getLocale()
-            );
+                    "user.reset-password.expired-token", null, LocaleContextHolder.getLocale());
             throw new RuntimeException(message);
         }
 

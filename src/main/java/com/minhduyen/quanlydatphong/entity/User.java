@@ -37,27 +37,29 @@ public class User extends BaseEntity implements UserDetails { // Kế thừa t�
     private String fullName;
 
     @ManyToMany(fetch = FetchType.EAGER)
-    @JoinTable(
-            name = "user_role",
-            joinColumns = @JoinColumn(name = "user_id"),
-            inverseJoinColumns = @JoinColumn(name = "role_id")
-    )
+    @JoinTable(name = "user_role", joinColumns = @JoinColumn(name = "user_id"), inverseJoinColumns = @JoinColumn(name = "role_id"))
     private Set<Role> roles = new HashSet<>();
     private String resetPasswordToken;
     private LocalDateTime resetTokenExpiryTime;
 
     /**
-     * Phương thức quan trọng nhất: Trả về danh sách các quyền (Permissions) của người dùng.
-     * Spring Security sẽ dùng danh sách này để kiểm tra quyền truy cập (Authorization).
+     * Phương thức quan trọng nhất: Trả về danh sách các quyền (Permissions) của
+     * người dùng.
+     * Spring Security sẽ dùng danh sách này để kiểm tra quyền truy cập
+     * (Authorization).
      */
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
         // Từ danh sách các Role, ta lấy ra tất cả các Permission
         // và chuyển chúng thành các đối tượng SimpleGrantedAuthority.
-        return this.roles.stream()
+        java.util.List<GrantedAuthority> authorities = this.roles.stream()
                 .flatMap(role -> role.getPermissions().stream())
                 .map(permission -> new SimpleGrantedAuthority(permission.getName()))
-                .collect(Collectors.toList());
+                .collect(java.util.stream.Collectors.toList());
+
+        // Thêm các role (ví dụ: "ROLE_USER") vào danh sách authorities
+        this.roles.forEach(role -> authorities.add(new SimpleGrantedAuthority(role.getName())));
+        return authorities;
     }
 
     // Phương thức getPassword() và getUsername() đã được Lombok (@Getter) tạo sẵn.
@@ -82,5 +84,4 @@ public class User extends BaseEntity implements UserDetails { // Kế thừa t�
         return true; // tài khoản được kích hoạt
     }
 
-    
 }
